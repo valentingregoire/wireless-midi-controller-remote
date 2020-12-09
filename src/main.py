@@ -1,8 +1,12 @@
 import struct
 
 import bluetooth
+from machine import ADC
 from machine import Pin
 from micropython import const
+import _thread
+
+from utime import sleep_ms
 
 from ble_advertising import advertising_payload
 
@@ -11,35 +15,54 @@ def create_pin(pin_id: int) -> Pin:
     return Pin(pin_id, Pin.IN, Pin.PULL_UP)
 
 
-def bling_led(led: Pin) -> None:
-    led.value(1)
-    LED_ON = True
-
-
 # in seconds
 LED_BLING_TIME = 1
 LED_ON = False
+CURRENT_PATCH = 1
 
 
 BUTTON_PIN_MAP = {
-    # "button_rig_up": create_pin(32),
-    # "button_rig_down": create_pin(33),
-    # "button_scene1": create_pin(25),
-    # "button_scene2": create_pin(26),
-    # "button_scene3": create_pin(27),
-    # "button_scene4": create_pin(14),
-    # "button_tap_tempo": create_pin(12)
-    49: create_pin(32),
-    55: create_pin(33),
-    56: create_pin(25),
-    57: create_pin(26),
-    58: create_pin(27),
-    59: create_pin(14),
-    60: create_pin(12),
+    "button_rig_up": create_pin(32),
+    "button_rig_down": create_pin(33),
+    "button_scene1": create_pin(25),
+    "button_scene2": create_pin(26),
+    "button_scene3": create_pin(27),
+    "button_scene4": create_pin(14),
+    "button_tap_tempo": create_pin(12)
+    # 49: create_pin(32),
+    # 55: create_pin(33),
+    # 56: create_pin(25),
+    # 57: create_pin(26),
+    # 58: create_pin(27),
+    # 59: create_pin(14),
+    # 60: create_pin(12),
 }
 
-BLUETOOTH_STATUS_LED = Pin(13, Pin.OUT, Pin.PULL_UP)
-BLUETOOTH_STATUS_LED.value(0)
+POT = ADC(Pin(35))
+POT.atten(ADC.ATTN_11DB)
+
+STATUS_LED = Pin(13, Pin.OUT, Pin.PULL_UP)
+STATUS_LED.value(0)
+
+
+def __blink_led(status=1) -> None:
+    """
+    Blinks the status led.
+    :param status:
+        1: blue
+        2: green
+        3: orange
+        4: red
+    :return:
+    """
+
+    STATUS_LED.value(1)
+
+
+def blink_led(status=1) -> None:
+    # _thread.start_new_thread(__blink_led, (status,))
+    __blink_led(status)
+
 
 _IRQ_CENTRAL_CONNECT = const(1)
 _IRQ_CENTRAL_DISCONNECT = const(2)
@@ -69,7 +92,7 @@ class BLEHeadrushRemote:
         self._connections = set()
         self._payload = advertising_payload(name=name, services=[_ENV_SENSE_UUID])
         self._advertise()
-        BLUETOOTH_STATUS_LED.value(1)
+        STATUS_LED.value(1)
 
     def _irq(self, event, data):
         # Track connections so we can send notifications.
@@ -95,6 +118,8 @@ class BLEHeadrushRemote:
         self._ble.gatts_write(self._handle, command)
         for conn_handle in self._connections:
             self._ble.gatts_notify(conn_handle, self._handle)
+            blink_led(2)
+            sleep_ms(25)
 
     def _advertise(self, interval_us=500000):
         self._ble.gap_advertise(interval_us, adv_data=self._payload)
@@ -104,16 +129,25 @@ def main():
     ble = bluetooth.BLE()
     remote = BLEHeadrushRemote(ble)
 
+    previous_pot_value = -1
     button_pressed = None
     while True:
         if remote.is_connected():
-            for command, button in BUTTON_PIN_MAP.items():
-                if not button_pressed == command and button.value() == 0:
-                    button_pressed = command
-                    print("sending '{command}'.".format(command=command))
-                    remote.send(struct.pack("I", command))
-                elif button_pressed == command and button.value() == 1:
-                    button_pressed = None
+            pot_value = int(POT.read() / 32)
+            if previous_pot_value not in [pot_value - 1, pot_value, pot_value + 1]:
+                number = 61
+                previous_pot_value = pot_value
+                remote.send("POT|{}|{}".format(number, pot_value))
+            else:
+                for command, button in BUTTON_PIN_MAP.items():
+                    if not button_pressed == command and button.value() == 0:
+                        button_pressed = command
+                        print("sending '{command}'.".format(command=command))
+                        # remote.send(struct.pack("I", command))
+                        remote.send(command)
+                        break
+                    elif button_pressed == command and button.value() == 1:
+                        button_pressed = None
 
 
 if __name__ == "__main__":
