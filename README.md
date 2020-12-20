@@ -104,10 +104,15 @@ ampy --port COM4 put src/main.py
 https://www.studiopieters.nl/esp32-pinout/
 https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/index.html
 
-
 TTGO
+
+http://www.lilygo.cn/prod_view.aspx?TypeId=50033&Id=1126&FId=t3:50033:3
+
 https://www.instructables.com/TTGO-color-Display-With-Micropython-TTGO-T-display/
 
-python esptool.py --chip esp32 --port COM7 --baud 460800 --before default_reset --after no_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 bootloader/bootloader.bin 0xf000 phy_init_data.bin 0x10000 MicroPython.bin 0x8000 partitions_mpy.bin
+`esptool.py --port COM7 erase_flash`
 
-ampy --port COM7 put remote/src/esp32ttgo/main.py
+`python esptool.py --chip esp32 --port COM7 --baud 460800 --before default_reset --after no_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 bootloader/bootloader.bin 0xf000 phy_init_data.bin 0x10000 MicroPython.bin 0x8000 partitions_mpy.bin`
+
+`ampy --port COM7 put remote/src/esp32ttgo/main.py`
+
