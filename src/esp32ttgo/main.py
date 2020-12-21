@@ -1,21 +1,28 @@
 import display
-from micropython import const
-from network import WLAN
 import machine
 from machine import Pin
+from micropython import const
+import network
 from utime import sleep_ms
+from microWebSrv import MicroWebSrv
 
-print("deactivating wlan")
-WLAN(0).active(False)
-WLAN(1).active(False)
+# print("deactivating wlan")
+# WLAN(0).active(False)
+# WLAN(1).active(False)
 
 machine.freq(240000000)
+
+# configure wifi connectivity
+print("Connecting to servant...")
+WIFI = network.WLAN(network.STA_IF)
+WIFI.active(True)
+WIFI.connect("Headrush Servant")
 
 
 def _create_pin_in(pin_id: int) -> Pin:
     return Pin(pin_id, Pin.IN, Pin.PULL_UP)
 
-COLOR_OFF = const(0xAAAAAA)
+COLOR_OFF = const(0xCCCCCC)
 COLOR_ON = const(0xFFC117)
 
 # button = _create_pin_in(32)
@@ -25,12 +32,12 @@ COLOR_ON = const(0xFFC117)
 # button5 = _create_pin_in(15)
 
 _BUTTON_PIN_MAP = {
-    "button_rig_up": _create_pin_in(32),
-    "button_rig_down": _create_pin_in(33),
-    "button_scene1": _create_pin_in(25),
-    "button_scene2": _create_pin_in(26),
-    "button_scene3": _create_pin_in(27),
-    "button_scene4": _create_pin_in(14),
+    b"button_rig_up": _create_pin_in(32),
+    b"button_rig_down": _create_pin_in(33),
+    b"button_scene1": _create_pin_in(25),
+    b"button_scene2": _create_pin_in(26),
+    b"button_scene3": _create_pin_in(27),
+    b"button_scene4": _create_pin_in(14),
 }
 
 
@@ -48,6 +55,7 @@ RIG_WIDTH = 120
 RIG_HEIGHT = 100
 RIG_X_START = SCREEN_SIZE[0] - RIG_WIDTH
 RIG_Y_START = 0
+
 
 def render_background():
     print("rendering background")
@@ -138,41 +146,59 @@ def print_rig_number(rig: int) -> None:
     TFT.text(x, y, text)
 
 
+def configure_socket():
+    while not WIFI.isconnected():
+        print("Waiting for connection with servant.")
+        sleep_ms(150)
+
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # sock.bind(("192.168.4.1", 10086))
+    sock.sendto(b"this is just a simple string...", ("192.168.4.1", 10086))
+
+    return sock
+
+
 def main() -> None:
+    sock = configure_socket()
     draw_switches()
     print("in main")
     rig = 1
     button_down = None
     counter = 0
     while counter < 100:
-        # foot switches
-        for command, button in _BUTTON_PIN_MAP.items():
-            if not button_down == command and button.value() == 0:
-                print("{} pressed".format(command))
-                button_down = command
-                print("sending '{command}'.".format(command=command))
-                if command in ["button_rig_up", "button_rig_down"]:
-                    if command == "button_rig_up":
-                        rig += 1
-                    elif command == "button_rig_down":
-                        rig -= 1
+        if True:
+        # if remote.is_connected():
+            # foot switches
+            for command, button in _BUTTON_PIN_MAP.items():
+                if not button_down == command and button.value() == 0:
+                    print("{} pressed".format(command))
+                    button_down = command
+                    print("sending '{command}'.".format(command=command))
+                    if command in [b"button_rig_up", b"button_rig_down"]:
+                        if command == b"button_rig_up":
+                            rig += 1
+                        elif command == b"button_rig_down":
+                            rig -= 1
 
-                    print_rig_number(rig)
-                # remote.send(struct.pack("I", command))
-                # remote.send(command)
-                # blink_led(2)
+                        print_rig_number(rig)
+                    # remote.send(struct.pack("I", command))
+                    # remote.send(command)
+                    sock.sendto(command, ("192.168.4.1", 10086))
+                    # blink_led(2)
 
-                break
-            elif button_down == command and button.value() == 1:
-                button_down = None
+                    break
+                elif button_down == command and button.value() == 1:
+                    button_down = None
 
-        counter += 1
-        print(counter)
-        sleep_ms(100)
+            counter += 1
+            print(counter)
+            sleep_ms(100)
+
 
         # print("({}, {}, {}, {}, {})".format(button.value(), button2.value(), button3.value(), button4.value(), button5.value()))
 
 
-init_tft()
-
-main()
+if __name__ == "__main__":
+    init_tft()
+    main()
