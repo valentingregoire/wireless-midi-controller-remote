@@ -118,7 +118,7 @@ esptool.py --port COM7 erase_flash
 cd workspaces/esptool
 python esptool.py --chip esp32 --port COM7 --baud 460800 --before default_reset --after no_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 bootloader/bootloader.bin 0xf000 phy_init_data.bin 0x10000 MicroPython.bin 0x8000 partitions_mpy.bin
 
-# upload main script
+# upload main scripth
 ampy --port COM7 put remote/src/esp32ttgo/main.py
 ```
 

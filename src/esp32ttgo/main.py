@@ -1,3 +1,5 @@
+import sys
+
 import display
 import machine
 from machine import Pin
@@ -60,7 +62,7 @@ RIG_Y_START = 0
 def render_background():
     print("rendering background")
     # set black background
-    TFT.rect(0, 0, 320, 240, fillcolor=TFT.WHITE)
+    TFT.rect(0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1], fillcolor=TFT.WHITE)
 
 
 def init_tft() -> None:
@@ -154,7 +156,7 @@ def configure_socket():
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # sock.bind(("192.168.4.1", 10086))
-    sock.sendto(b"this is just a simple string...", ("192.168.4.1", 10086))
+    sock.sendto(b"Remote connected!", ("192.168.4.1", 10086))
 
     return sock
 
@@ -165,36 +167,30 @@ def main() -> None:
     print("in main")
     rig = 1
     button_down = None
-    counter = 0
-    while counter < 100:
-        if True:
+    while True:
         # if remote.is_connected():
-            # foot switches
-            for command, button in _BUTTON_PIN_MAP.items():
-                if not button_down == command and button.value() == 0:
-                    print("{} pressed".format(command))
-                    button_down = command
-                    print("sending '{command}'.".format(command=command))
-                    if command in [b"button_rig_up", b"button_rig_down"]:
-                        if command == b"button_rig_up":
-                            rig += 1
-                        elif command == b"button_rig_down":
-                            rig -= 1
+        # foot switches
+        for command, button in _BUTTON_PIN_MAP.items():
+            if not button_down == command and button.value() == 0:
+                # print("{} pressed".format(command))
+                button_down = command
+                # print("sending '{command}'.".format(command=command))
+                if command in [b"button_rig_up", b"button_rig_down"]:
+                    if command == b"button_rig_up":
+                        rig += 1
+                    elif command == b"button_rig_down":
+                        rig -= 1
+                        sys.exit()
 
-                        print_rig_number(rig)
-                    # remote.send(struct.pack("I", command))
-                    # remote.send(command)
-                    sock.sendto(command, ("192.168.4.1", 10086))
-                    # blink_led(2)
+                    print_rig_number(rig)
+                # remote.send(struct.pack("I", command))
+                # remote.send(command)
+                sock.sendto(command, ("192.168.4.1", 10086))
+                # blink_led(2)
 
-                    break
-                elif button_down == command and button.value() == 1:
-                    button_down = None
-
-            counter += 1
-            print(counter)
-            sleep_ms(100)
-
+                break
+            elif button_down == command and button.value() == 1:
+                button_down = None
 
         # print("({}, {}, {}, {}, {})".format(button.value(), button2.value(), button3.value(), button4.value(), button5.value()))
 
