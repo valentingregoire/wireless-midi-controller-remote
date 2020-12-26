@@ -63,6 +63,7 @@ TFT = display.TFT()
 TFT.init(TFT.ST7789, rot=TFT.LANDSCAPE_FLIP, miso=17, backl_pin=4, backl_on=1, mosi=19, clk=18, cs=5, dc=16, splash=False)
 TFT.tft_writecmd(0x21)
 TFT.setwin(39, 52, 279, 187)  # 240 * 135
+TFT.savewin()
 # # rig window
 # TFT.setwin(180, 0, 140, 70)
 # TFT.savewin()
@@ -93,6 +94,36 @@ SWITCH_SPACE_WIDTH = int(WINDOW_SIZE[0] / 4)
 SWITCH_HALF_SPACE_WIDTH = int(SWITCH_SPACE_WIDTH / 2)
 SWITCH_Y = WINDOW_SPLIT_Y_3_4
 SWITCH_R = SWITCH_HALF_SPACE_WIDTH - MARGIN
+
+
+def show_wifi_status(status: int) -> None:
+    """
+    Shows the wifi status in the upper left corner.
+
+    Usable window is (0, 0) -> (15, 21)
+    :param status: status of the wifi:
+        0. not connected
+        1. connecting
+        2. connected
+        3. sending message
+    :return: None
+    """
+
+    TFT.rect(0, 0, 15, 21, COLOR_BG, COLOR_BG)
+    if status == 0:
+        # color = 0xDC7684
+        color = TFT.RED
+    elif status == 1:
+        color = TFT.YELLOW
+    elif status == 2:
+        color = TFT.GREEN
+    else:
+        color = TFT.WHITE
+
+    TFT.arc(15, 20, 20, 3, -45, 45, color, color)
+    TFT.arc(15, 20, 14, 3, -45, 45, color, color)
+    TFT.arc(15, 20, 8, 3, -45, 45, color, color)
+    TFT.circle(15, 21, 2, color, color)
 
 
 def map_switch_status_to_color(value: float) -> hex:
@@ -201,10 +232,10 @@ def print_rig_number(rig: int) -> None:
 #
 #     return sock
 
-ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN
-ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN_HALF
-ARROW_X3 = WINDOW_SPLIT_X_2 - MARGIN_HALF
-ARROW_X2 = int((ARROW_X3 - ARROW_X1) / 2)
+ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
+ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
+ARROW_X3 = WINDOW_SPLIT_X_2 - MARGIN
+ARROW_X2 = int((ARROW_X3 - ARROW_X1) / 2 + ARROW_X1)
 ARROW_HEIGHT = int(ARROW_SIDE * math.sqrt(3) / 2)
 ARROW_HEIGHT_2 = int(ARROW_HEIGHT / 2)
 ARROW_Y1 = int((WINDOW_SPLIT_Y - ARROW_HEIGHT) / 2)
