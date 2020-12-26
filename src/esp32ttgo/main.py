@@ -33,16 +33,17 @@ def _create_pin_in(pin_id: int) -> Pin:
 # button4 = _create_pin_in(2)
 # button5 = _create_pin_in(15)
 
+
 _BUTTON_PIN_MAP = {
     b"button_rig_up": _create_pin_in(32),
     b"button_rig_down": _create_pin_in(33),
     b"button_scene1": _create_pin_in(25),
     b"button_scene2": _create_pin_in(26),
     b"button_scene3": _create_pin_in(27),
-    b"button_scene4": _create_pin_in(14),
+    b"button_scene4": _create_pin_in(15),
 }
 
-_BUTTON_POT = _create_pin_in(12)
+_BUTTON_POT = _create_pin_in(13)
 _POT = ADC(Pin(35))
 _POT.atten(ADC.ATTN_11DB)
 
@@ -262,33 +263,36 @@ def main() -> None:
     # print("in main")
     rig = 1
     print_rig_number(rig)
-    # button_down = None
-    # while True:
-    #     # if remote.is_connected():
-    #     # foot switches
-    #     for command, button in _BUTTON_PIN_MAP.items():
-    #         if not button_down == command and button.value() == 0:
-    #             # print("{} pressed".format(command))
-    #             button_down = command
-    #             # print("sending '{command}'.".format(command=command))
-    #             if command in [b"button_rig_up", b"button_rig_down"]:
-    #                 if command == b"button_rig_up":
-    #                     rig += 1
-    #                 elif command == b"button_rig_down":
-    #                     rig -= 1
-    #                     sys.exit()
-    #
-    #                 print_rig_number(rig)
-    #             # remote.send(struct.pack("I", command))
-    #             # remote.send(command)
-    #
-    #             # sock.sendto(command, ("192.168.4.1", 10086))
-    #
-    #             break
-    #         elif button_down == command and button.value() == 1:
-    #             button_down = None
-    #
-    #     # print("({}, {}, {}, {}, {})".format(button.value(), button2.value(), button3.value(), button4.value(), button5.value()))
+    button_down = None
+    while True:
+        # if remote.is_connected():
+        # foot switches
+        if _BUTTON_POT.value() == 0:
+            print("POT pressed")
+        else:
+            for command, button in _BUTTON_PIN_MAP.items():
+                if not button_down == command and button.value() == 0:
+                    print("{} pressed".format(command))
+                    # button_down = command
+                    # print("sending '{command}'.".format(command=command))
+                    if command in [b"button_rig_up", b"button_rig_down"]:
+                        if command == b"button_rig_up":
+                            rig += 1
+                        elif command == b"button_rig_down":
+                            rig -= 1
+                            sys.exit()
+
+                        print_rig_number(rig)
+                    # remote.send(struct.pack("I", command))
+                    # remote.send(command)
+
+                    # sock.sendto(command, ("192.168.4.1", 10086))
+
+                    break
+                elif button_down == command and button.value() == 1:
+                    button_down = None
+
+        # print("({}, {}, {}, {}, {})".format(button.value(), button2.value(), button3.value(), button4.value(), button5.value()))
 
 
 if __name__ == "__main__":
