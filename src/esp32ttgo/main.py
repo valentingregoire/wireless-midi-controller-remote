@@ -1,15 +1,16 @@
+import _thread
 import math
 import sys
+from collections import OrderedDict
+from time import sleep
 
 import display
 import machine
+import network
 from machine import ADC
 from machine import Pin
 from micropython import const
-from collections import OrderedDict
-import network
 from utime import sleep_ms
-from microWebSrv import MicroWebSrv
 
 # print("deactivating wlan")
 # WLAN(0).active(False)
@@ -17,11 +18,80 @@ from microWebSrv import MicroWebSrv
 
 machine.freq(240000000)
 
+
+TFT = display.TFT()
+# 320 * 240, but in reality x goes from 40 to 279 and y goes from 53 to 187 -> 239 * 134 --> 1.78 ratio instead of 1.33
+# --> 240 * 135
+TFT.init(TFT.ST7789, rot=TFT.LANDSCAPE_FLIP, miso=17, backl_pin=4, backl_on=1, mosi=19, clk=18, cs=5, dc=16, splash=False)
+
+SERVANT_IP = "192.168.169.1"
+SERVANT_PORT = 18788
+REMOTE_IP = "192.168.169.2"
+REMOTE_PORT = 11686
+
 # configure wifi connectivity
 print("Connecting to servant...")
-# WIFI = network.WLAN(network.STA_IF)
-# WIFI.active(True)
-# WIFI.connect("Headrush Servant")
+
+
+def _print_wifi_status(status: int, strength_status: int = 0) -> None:
+    """
+    Shows the wifi status in the upper left corner.
+
+    Usable window is (0, 0) -> (15, 21)
+    :param status: status of the wifi:
+        0. not connected
+        1. connecting
+        2. connected
+        3. sending message
+    :param strength_status: the status of the WIFI signal strength:
+        1: superior
+        2: very good
+        3: ok
+        4: not that good
+        5: unusable
+    :return: None
+    """
+
+    TFT.rect(0, 0, 15, 21, COLOR_BG, COLOR_BG)
+    # color_disabled = 0xA1FFA1
+    if status == 0:
+        # color = 0xDC7684
+        color = TFT.RED
+    elif status == 1:
+        color = TFT.YELLOW
+    elif status == 2:
+        color = TFT.GREEN
+    else:
+        color = TFT.WHITE
+
+    # for i in range(3):
+    #     if status == 2:
+    #         color = TFT.GREEN if i + strength_status >= 6 else color_disabled
+    #     TFT.arc(15, 20, 20 - i * 6, 3, -45, 45, color, color)
+    # TFT.circle(15, 21, 2, color, color)
+
+    TFT.arc(15, 20, 20, 3, -45, 45, color, color)
+    TFT.arc(15, 20, 14, 3, -45, 45, color, color)
+    TFT.arc(15, 20, 8, 3, -45, 45, color, color)
+    TFT.circle(15, 21, 2, color, color)
+
+
+def wifi_callback(data) -> None:
+    if data[0] == 4:
+        # connected
+        _print_wifi_status(2)
+    elif data[0] == 5:
+        # disconnected
+        _print_wifi_status(0)
+
+    print("Wifi callback data {}".format(data))
+
+
+network.WLANcallback(wifi_callback)
+WIFI = network.WLAN(network.STA_IF)
+WIFI.ifconfig((REMOTE_IP, '255.255.255.0', '192.168.178.1', '8.8.8.8'))
+WIFI.active(True)
+WIFI.connect("Headrush Servant", "dunnolol")
 
 
 def _create_pin_in(pin_id: int) -> Pin:
@@ -58,10 +128,6 @@ SWITCH_STATUS[b"button_rig_down"] = (5, 0)
 SWITCH_STATUS[b"POT"] = (6, 0)
 
 
-TFT = display.TFT()
-# 320 * 240, but in reality x goes from 40 to 279 and y goes from 53 to 187 -> 239 * 134 --> 1.78 ratio instead of 1.33
-# --> 240 * 135
-TFT.init(TFT.ST7789, rot=TFT.LANDSCAPE_FLIP, miso=17, backl_pin=4, backl_on=1, mosi=19, clk=18, cs=5, dc=16, splash=False)
 TFT.tft_writecmd(0x21)
 TFT.setwin(39, 52, 279, 187)  # 240 * 135
 TFT.savewin()
@@ -97,34 +163,39 @@ SWITCH_Y = WINDOW_SPLIT_Y_3_4
 SWITCH_R = SWITCH_HALF_SPACE_WIDTH - MARGIN
 
 
-def show_wifi_status(status: int) -> None:
-    """
-    Shows the wifi status in the upper left corner.
-
-    Usable window is (0, 0) -> (15, 21)
-    :param status: status of the wifi:
-        0. not connected
-        1. connecting
-        2. connected
-        3. sending message
-    :return: None
-    """
-
-    TFT.rect(0, 0, 15, 21, COLOR_BG, COLOR_BG)
-    if status == 0:
-        # color = 0xDC7684
-        color = TFT.RED
-    elif status == 1:
-        color = TFT.YELLOW
-    elif status == 2:
-        color = TFT.GREEN
+def _get_wifi_signal_strength() -> int:
+    if WIFI.isconnected():
+        # rssi = WIFI.status("stations")
+        networks = WIFI.scan(True)
+        rssi = None
+        for network in networks:
+            if network[1] == b'\x8c\xaa\xb5\xb5\x9fe':
+                rssi = network[3]
+        print("rssi: {}".format(rssi))
+        if rssi >= -30:
+            return 1
+        elif rssi >= -67:
+            return 2
+        elif rssi >= -70:
+            return 3
+        elif rssi >= -80:
+            return 4
+        else:
+            return 5
     else:
-        color = TFT.WHITE
+        return 0
 
-    TFT.arc(15, 20, 20, 3, -45, 45, color, color)
-    TFT.arc(15, 20, 14, 3, -45, 45, color, color)
-    TFT.arc(15, 20, 8, 3, -45, 45, color, color)
-    TFT.circle(15, 21, 2, color, color)
+
+def _update_wifi_status() -> None:
+    while True:
+        rssi_status = _get_wifi_signal_strength()
+        if rssi_status >= 0:
+            _print_wifi_status(2, rssi_status)
+            sleep(5)
+
+
+def poll_wifi_status() -> None:
+    _thread.start_new_thread("Update Wi-Fi status", _update_wifi_status, ())
 
 
 def map_switch_status_to_color(value: float) -> hex:
@@ -155,45 +226,6 @@ def init_tft() -> None:
     TFT.set_fg(COLOR_ON)
 
 
-# tft.setwin(40, 52, 320, 240)
-
-# for i in range(0, 241):
-#     color = 0xFFFFFF - tft.hsb2rgb(i / 241 * 360, 1, 1)
-#     tft.line(i, 0, i, 135, color)
-
-# tft.set_fg(0x000000)
-
-# tft.ellipse(120, 67, 120, 67)
-
-# tft.line(0, 0, 240, 135)
-
-# (width, height)
-
-# for i in range(0, 321):
-#     tft.pixel(i, int(WIN_SIZE[1] / 2), tft.BLACK)
-
-
-
-# for i in range(21):
-#     tft.rect(0, 0, 320, 240, fillcolor=tft.WHITE)
-#     x = 240 if i < 10 else 200
-#     y = 58
-#     tft.text(x, y, str(i))
-#     sleep_ms(50)
-# text = "12"
-
-
-
-# tft.text(120 - int(tft.textWidth(text) / 2), 67 - int(tft.fontSize()[1] / 2), text, 0xFFFFFF)
-# tft.text(tft.RIGHT -
-
-
-# tft.attrib7seg(10, 120, tft.RED, COLOR_ON)
-
-# tft.circle(50, 100, 20, tft.BLACK, tft.WHITE)
-# tft.circle(150, 200, 20, tft.WHITE, tft.BLACK)
-
-
 def draw_switch(switch: bytes) -> None:
     pos, status = SWITCH_STATUS[switch]
     # lower row
@@ -221,17 +253,19 @@ def print_rig_number(rig: int) -> None:
     TFT.text(x, y, text)
 
 
-# def configure_socket():
-#     while not WIFI.isconnected():
-#         print("Waiting for connection with servant.")
-#         sleep_ms(150)
-#
-#     import socket
-#     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#     # sock.bind(("192.168.4.1", 10086))
-#     sock.sendto(b"Remote connected!", ("192.168.4.1", 10086))
-#
-#     return sock
+def configure_socket():
+    while not WIFI.isconnected():
+        print("Waiting for connection with servant.")
+        sleep_ms(100)
+
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # sock.bind(("192.168.169.1", 10086))
+    sock.sendto(b"Remote connected!", (SERVANT_IP, SERVANT_PORT))
+
+    _print_wifi_status(2, 1)
+
+    return sock
 
 ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
 ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
@@ -257,7 +291,7 @@ def _draw_arrow(up=True) -> None:
 
 
 def main() -> None:
-    # sock = configure_socket()
+    sock = configure_socket()
     reset_switches()
 
     # print("in main")
@@ -265,7 +299,6 @@ def main() -> None:
     print_rig_number(rig)
     button_down = None
     while True:
-        # if remote.is_connected():
         # foot switches
         if _BUTTON_POT.value() == 0:
             print("POT pressed")
@@ -273,7 +306,7 @@ def main() -> None:
             for command, button in _BUTTON_PIN_MAP.items():
                 if not button_down == command and button.value() == 0:
                     print("{} pressed".format(command))
-                    # button_down = command
+                    button_down = command
                     # print("sending '{command}'.".format(command=command))
                     if command in [b"button_rig_up", b"button_rig_down"]:
                         if command == b"button_rig_up":
@@ -286,7 +319,7 @@ def main() -> None:
                     # remote.send(struct.pack("I", command))
                     # remote.send(command)
 
-                    # sock.sendto(command, ("192.168.4.1", 10086))
+                    sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
 
                     break
                 elif button_down == command and button.value() == 1:
@@ -297,4 +330,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     init_tft()
+    # poll_wifi_status()
     main()
