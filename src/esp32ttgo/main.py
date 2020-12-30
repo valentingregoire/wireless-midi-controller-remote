@@ -28,12 +28,13 @@ SERVANT_IP = "192.168.169.1"
 SERVANT_PORT = 18788
 REMOTE_IP = "192.168.169.2"
 REMOTE_PORT = 11686
+_WIFI_STRENGTH = 0
 
 # configure wifi connectivity
 print("Connecting to servant...")
 
 
-def _print_wifi_status(status: int, strength_status: int = 0) -> None:
+def _print_wifi_status(status: int) -> None:
     """
     Shows the wifi status in the upper left corner.
 
@@ -43,43 +44,40 @@ def _print_wifi_status(status: int, strength_status: int = 0) -> None:
         1. connecting
         2. connected
         3. sending message
-    :param strength_status: the status of the WIFI signal strength:
-        1: superior
-        2: very good
+    :param _WIFI_STRENGTH: the WIFI signal strength:
+        1: unusable
+        2: not that good
         3: ok
-        4: not that good
-        5: unusable
+        4: very good
+        5: superior
     :return: None
     """
 
     TFT.rect(0, 0, 15, 21, COLOR_BG, COLOR_BG)
-    # color_disabled = 0xA1FFA1
     if status == 0:
-        # color = 0xDC7684
-        color = TFT.RED
+        color = 0xAA0000
     elif status == 1:
-        color = TFT.YELLOW
+        color = 0xCCCC00
     elif status == 2:
-        color = TFT.GREEN
+        color = 0x00AA00
     else:
         color = TFT.WHITE
 
-    # for i in range(3):
-    #     if status == 2:
-    #         color = TFT.GREEN if i + strength_status >= 6 else color_disabled
-    #     TFT.arc(15, 20, 20 - i * 6, 3, -45, 45, color, color)
-    # TFT.circle(15, 21, 2, color, color)
+    color_green_greyed = 0x003300
+    print("status: {}".format(_WIFI_STRENGTH))
 
-    TFT.arc(15, 20, 20, 3, -45, 45, color, color)
-    TFT.arc(15, 20, 14, 3, -45, 45, color, color)
-    TFT.arc(15, 20, 8, 3, -45, 45, color, color)
-    TFT.circle(15, 21, 2, color, color)
+    for i in range(3):
+        color_arc = color if _WIFI_STRENGTH == 0 or (i + 3) <= _WIFI_STRENGTH else color_green_greyed
+        print("i: {} - {} - {}".format(i, _WIFI_STRENGTH, color_arc))
+        TFT.arc(15, 20, 8 + i * 6, 3, -45, 45, color_arc, color_arc)
+    color_dot = color_green_greyed if status == 2 and _WIFI_STRENGTH == 1 else color
+    TFT.circle(15, 21, 2, color_dot, color_dot)
 
 
 def wifi_callback(data) -> None:
     if data[0] == 4:
         # connected
-        _print_wifi_status(2)
+        _update_wifi_status()
     elif data[0] == 5:
         # disconnected
         _print_wifi_status(0)
@@ -163,39 +161,35 @@ SWITCH_Y = WINDOW_SPLIT_Y_3_4
 SWITCH_R = SWITCH_HALF_SPACE_WIDTH - MARGIN
 
 
-def _get_wifi_signal_strength() -> int:
+def _get_wifi_signal_strength() -> None:
     if WIFI.isconnected():
         # rssi = WIFI.status("stations")
         networks = WIFI.scan(True)
         rssi = None
-        for network in networks:
-            if network[1] == b'\x8c\xaa\xb5\xb5\x9fe':
-                rssi = network[3]
+        for net in networks:
+            print("\t{}".format(net))
+            if net[1] == b'\x8c\xaa\xb5\xb5\x9fe':
+                rssi = net[3]
         print("rssi: {}".format(rssi))
+        global _WIFI_STRENGTH
         if rssi >= -30:
-            return 1
+            _WIFI_STRENGTH = 5
         elif rssi >= -67:
-            return 2
+            _WIFI_STRENGTH = 4
         elif rssi >= -70:
-            return 3
+            _WIFI_STRENGTH = 3
         elif rssi >= -80:
-            return 4
+            _WIFI_STRENGTH = 2
         else:
-            return 5
+            _WIFI_STRENGTH = 1
     else:
-        return 0
+        _WIFI_STRENGTH = 0
 
 
 def _update_wifi_status() -> None:
-    while True:
-        rssi_status = _get_wifi_signal_strength()
-        if rssi_status >= 0:
-            _print_wifi_status(2, rssi_status)
-            sleep(5)
-
-
-def poll_wifi_status() -> None:
-    _thread.start_new_thread("Update Wi-Fi status", _update_wifi_status, ())
+    if _WIFI_STRENGTH == 0:
+        _get_wifi_signal_strength()
+    _print_wifi_status(2)
 
 
 def map_switch_status_to_color(value: float) -> hex:
@@ -213,12 +207,14 @@ def clear_background():
     TFT.clear(TFT.BLACK)
 
 
+def set_font(color=COLOR_ON):
+    TFT.font(TFT.FONT_7seg)
+    TFT.attrib7seg(12, 12, color, color)
+
+
 def init_tft() -> None:
     print("init tft")
-
-    TFT.font(TFT.FONT_7seg)
-    TFT.attrib7seg(12, 12, COLOR_ON, COLOR_ON)
-
+    set_font()
     clear_background()
 
     # set front and back colors so segment font is printed properly
@@ -243,7 +239,8 @@ def reset_switches() -> None:
         draw_switch(switch)
 
 
-def print_rig_number(rig: int) -> None:
+def print_rig_number(rig: int, color=COLOR_ON) -> None:
+    set_font(color)
     TFT.rect(RIG_X_START, RIG_Y_START, RIG_WIDTH, RIG_HEIGHT, color=COLOR_BG, fillcolor=COLOR_BG)
     text = str(rig)
     print("rig {}".format(rig))
@@ -263,9 +260,10 @@ def configure_socket():
     # sock.bind(("192.168.169.1", 10086))
     sock.sendto(b"Remote connected!", (SERVANT_IP, SERVANT_PORT))
 
-    _print_wifi_status(2, 1)
+    _update_wifi_status()
 
     return sock
+
 
 ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
 ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
@@ -315,20 +313,19 @@ def main() -> None:
                             rig -= 1
                             sys.exit()
 
-                        print_rig_number(rig)
+                        print_rig_number(rig, TFT.RED)
                     # remote.send(struct.pack("I", command))
                     # remote.send(command)
 
                     sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
+                    print_rig_number(rig)
 
                     break
                 elif button_down == command and button.value() == 1:
                     button_down = None
 
-        # print("({}, {}, {}, {}, {})".format(button.value(), button2.value(), button3.value(), button4.value(), button5.value()))
-
 
 if __name__ == "__main__":
     init_tft()
-    # poll_wifi_status()
+    _print_wifi_status(0)
     main()
