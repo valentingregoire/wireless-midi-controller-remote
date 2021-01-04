@@ -60,7 +60,7 @@ def set_normal_font():
 def print_text(text: str) -> None:
     set_normal_font()
     # text_width = TFT.textWidth(text)
-    TFT.rect(0, 22, RIG_X_START, WINDOW_SPLIT_Y, COLOR_BG, COLOR_BG)
+    TFT.rect(0, 22, RIG_X_START, WINDOW_SPLIT_Y - 22, COLOR_BG, COLOR_BG)
     TFT.text(10, TEXT_Y, text)
 
 
@@ -117,16 +117,24 @@ def _create_pin_in(pin_id: int) -> Pin:
     return Pin(pin_id, Pin.IN, Pin.PULL_UP)
 
 
-_BUTTON_PIN_MAP = {
-    b"button_rig_up": _create_pin_in(32),
-    b"button_rig_down": _create_pin_in(33),
-    b"button_scene1": _create_pin_in(2),
-    b"button_scene2": _create_pin_in(15),
-    b"button_scene3": _create_pin_in(13),
-    b"button_scene4": _create_pin_in(12),
-}
+_BUTTON_SCENE1 = b"button_scene1"
+_BUTTON_SCENE2 = b"button_scene2"
+_BUTTON_SCENE3 = b"button_scene3"
+_BUTTON_SCENE4 = b"button_scene4"
+_BUTTON_RIG_UP = b"button_rig_up"
+_BUTTON_RIG_DOWN = b"button_rig_down"
+
+
+_BUTTON_PIN_MAP = OrderedDict()
+_BUTTON_PIN_MAP[_BUTTON_SCENE1] = _create_pin_in(2)
+_BUTTON_PIN_MAP[_BUTTON_SCENE2] = _create_pin_in(25)
+_BUTTON_PIN_MAP[_BUTTON_SCENE3] = _create_pin_in(13)
+_BUTTON_PIN_MAP[_BUTTON_SCENE4] = _create_pin_in(12)
+_BUTTON_PIN_MAP[_BUTTON_RIG_UP] = _create_pin_in(32)
+_BUTTON_PIN_MAP[_BUTTON_RIG_DOWN] = _create_pin_in(33)
 
 _BUTTON_REPL = Pin(35, Pin.IN)
+# _BUTTON_WIFI_STATUS = Pin(0, Pin.IN)
 
 # _BUTTON_POT = _create_pin_in(13)
 # _POT = ADC(Pin(35))
@@ -134,12 +142,17 @@ _BUTTON_REPL = Pin(35, Pin.IN)
 
 
 SWITCH_STATUS = OrderedDict()
-SWITCH_STATUS[b"button_scene1"] = (0, 1)
-SWITCH_STATUS[b"button_scene2"] = (1, 0)
-SWITCH_STATUS[b"button_scene3"] = (2, 0)
-SWITCH_STATUS[b"button_scene4"] = (3, 0)
-SWITCH_STATUS[b"button_rig_up"] = (4, 0)
-SWITCH_STATUS[b"button_rig_down"] = (5, 0)
+
+
+def set_switch_status(switch_active):
+    counter = 0
+    if switch_active in [_BUTTON_RIG_UP, _BUTTON_RIG_DOWN]:
+        switch_active = _BUTTON_SCENE1
+    for key in _BUTTON_PIN_MAP.keys():
+        SWITCH_STATUS[key] = {"pos": counter, "value": switch_active == key}
+        counter += 1
+
+
 # SWITCH_STATUS[b"POT"] = (6, 0)
 WIFI = network.WLAN(network.STA_IF)
 WIFI.ifconfig((REMOTE_IP, '255.255.255.0', '192.168.178.1', '8.8.8.8'))
@@ -185,7 +198,7 @@ def wifi_callback(data) -> None:
         _update_wifi_status()
     elif data[0] == 5:
         # disconnected
-        print_text("Unlinked")
+        print_text("Disconnected")
         _print_wifi_status(0)
 
 
@@ -223,9 +236,11 @@ def init_tft() -> None:
 
 
 def draw_switch(switch: bytes) -> None:
-    pos, status = SWITCH_STATUS[switch]
+    pos_value = SWITCH_STATUS[switch]
+    pos = pos_value["pos"]
+    value = pos_value["value"]
     # lower row
-    color = COLOR_ON if status == 1 else COLOR_OFF
+    color = COLOR_ON if value else COLOR_OFF
     if pos <= 3:
         switch_space_multiplier = SWITCH_SPACE_WIDTH * pos
         TFT.rect(switch_space_multiplier, WINDOW_SPLIT_Y, switch_space_multiplier + SWITCH_SPACE_WIDTH, WINDOW_SIZE[1], COLOR_BG)
@@ -234,9 +249,13 @@ def draw_switch(switch: bytes) -> None:
     #     TFT.circle(SWITCH_HALF_SPACE_WIDTH, int(WINDOW_SPLIT_Y / 2), SWITCH_R, color, color)
 
 
-def reset_switches() -> None:
-    for switch in SWITCH_STATUS:
-        draw_switch(switch)
+def reset_switches(switch: bytes) -> None:
+    set_switch_status(switch)
+    for sw in SWITCH_STATUS:
+        # new_value = not sw == switch
+        # if not SWITCH_STATUS[sw]["value"] == new_value:
+        draw_switch(sw)
+        # SWITCH_STATUS[sw]["value"] = new_value
 
 
 def print_rig_number(rig: int, color=COLOR_ON) -> None:
@@ -256,7 +275,7 @@ def configure_socket():
         print("Waiting for connection with servant.")
         print_text("Connecting {}".format("." * (counter % 3 + 1)))
         counter += 1
-        sleep_ms(100)
+        sleep_ms(250)
 
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -268,14 +287,14 @@ def configure_socket():
     return sock
 
 
-ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
-ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
-ARROW_X3 = WINDOW_SPLIT_X_2 - MARGIN
-ARROW_X2 = int((ARROW_X3 - ARROW_X1) / 2 + ARROW_X1)
-ARROW_HEIGHT = int(ARROW_SIDE * math.sqrt(3) / 2)
-ARROW_HEIGHT_2 = int(ARROW_HEIGHT / 2)
-ARROW_Y1 = int((WINDOW_SPLIT_Y - ARROW_HEIGHT) / 2)
-ARROW_Y2 = WINDOW_SPLIT_Y - ARROW_Y1
+# ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
+# ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
+# ARROW_X3 = WINDOW_SPLIT_X_2 - MARGIN
+# ARROW_X2 = int((ARROW_X3 - ARROW_X1) / 2 + ARROW_X1)
+# ARROW_HEIGHT = int(ARROW_SIDE * math.sqrt(3) / 2)
+# ARROW_HEIGHT_2 = int(ARROW_HEIGHT / 2)
+# ARROW_Y1 = int((WINDOW_SPLIT_Y - ARROW_HEIGHT) / 2)
+# ARROW_Y2 = WINDOW_SPLIT_Y - ARROW_Y1
 
 
 # def _draw_arrow(up=True) -> None:
@@ -291,36 +310,65 @@ ARROW_Y2 = WINDOW_SPLIT_Y - ARROW_Y1
 #     _thread.start_new_thread(__blink_led, (times, interval))
 
 
+RIG_MIN = const(1)
+RIG_MAX = const(99)
+
+# _BUTTON_WIFI_NAME = b"WIFI_STATUS"
+
+
 def main() -> None:
     sock = configure_socket()
-    reset_switches()
+    print_text("")
+    # initiate_switch_status()
+    reset_switches(_BUTTON_SCENE1)
 
-    rig = 1
+    rig = RIG_MIN
     print_rig_number(rig)
+    print_text("Scene 1 OK")
     button_down = None
     while True:
+        send = True
+        rig_change = False
         # foot switches
         if _BUTTON_REPL.value() == 0:
             print_text("system exit")
             sys.exit()
+        # elif _BUTTON_WIFI_STATUS.value() == 1:
+        #     if not button_down == _BUTTON_WIFI_NAME:
+        #         print("WIFI button pressed")
+        #         button_down = _BUTTON_WIFI_NAME
+        #         global _WIFI_STRENGTH
+        #         _WIFI_STRENGTH = 0
+        #         _update_wifi_status()
+        #     elif button_down == _BUTTON_WIFI_NAME and _BUTTON_WIFI_STATUS.value() == 0:
+        #         button_down = None
         else:
             for command, button in _BUTTON_PIN_MAP.items():
                 if not button_down == command and button.value() == 0:
-                    print("{} pressed".format(command))
+                    # print("{} pressed".format(command))
                     button_down = command
-                    print_text("{} ...".format(rig))
                     # print("sending '{command}'.".format(command=command))
-                    if command in [b"button_rig_up", b"button_rig_down"]:
-                        if command == b"button_rig_up":
-                            rig += 1
-                        elif command == b"button_rig_down":
-                            rig -= 1
+                    if command in [_BUTTON_RIG_UP, _BUTTON_RIG_DOWN]:
+                        if command == _BUTTON_RIG_UP:
+                            if rig < RIG_MAX:
+                                rig += 1
+                                rig_change = True
+                            else:
+                                send = False
+                        elif command == _BUTTON_RIG_DOWN:
+                            if rig > RIG_MIN:
+                                rig -= 1
+                                rig_change = True
+                            else:
+                                send = False
 
+                    if send:
                         print_rig_number(rig)
-
-                    sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
-                    # print_rig_number(rig)
-                    print_text("{} V".format(rig))
+                        message = "Rig {}".format(rig) if rig_change else command.replace(b"button_scene", b"Scene ").decode()
+                        print_text("{} ...".format(message))
+                        sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
+                        reset_switches(command)
+                        print_text("{} OK".format(message))
 
                     break
                 elif button_down == command and button.value() == 1:
