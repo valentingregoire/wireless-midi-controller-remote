@@ -1,19 +1,12 @@
-import _thread
-import math
 import sys
 from collections import OrderedDict
-from time import sleep
 
 import display
 import machine
 import network
-from machine import ADC
 from machine import Pin
 from micropython import const
 from utime import sleep_ms
-
-# WLAN(0).active(False)
-# WLAN(1).active(False)
 
 machine.freq(240000000)
 
@@ -21,7 +14,18 @@ machine.freq(240000000)
 TFT = display.TFT()
 # 320 * 240, but in reality x goes from 40 to 279 and y goes from 53 to 187 -> 239 * 134 --> 1.78 ratio instead of 1.33
 # --> 240 * 135
-TFT.init(TFT.ST7789, rot=TFT.LANDSCAPE_FLIP, miso=17, backl_pin=4, backl_on=1, mosi=19, clk=18, cs=5, dc=16, splash=False)
+TFT.init(
+    TFT.ST7789,
+    rot=TFT.LANDSCAPE_FLIP,
+    miso=17,
+    backl_pin=4,
+    backl_on=1,
+    mosi=19,
+    clk=18,
+    cs=5,
+    dc=16,
+    splash=False,
+)
 TFT.tft_writecmd(0x21)
 TFT.setwin(39, 52, 279, 187)  # 240 * 135
 TFT.savewin()
@@ -106,7 +110,11 @@ def _print_wifi_status(status: int) -> None:
     color_green_greyed = 0x003300
 
     for i in range(3):
-        color_arc = color if _WIFI_STRENGTH == 0 or (i + 3) <= _WIFI_STRENGTH else color_green_greyed
+        color_arc = (
+            color
+            if _WIFI_STRENGTH == 0 or (i + 3) <= _WIFI_STRENGTH
+            else color_green_greyed
+        )
         # print("i: {} - {} - {}".format(i, _WIFI_STRENGTH, color_arc))
         TFT.arc(15, 20, 8 + i * 6, 3, -45, 45, color_arc, color_arc)
     color_dot = color_green_greyed if status == 2 and _WIFI_STRENGTH == 1 else color
@@ -155,9 +163,9 @@ def set_switch_status(switch_active):
 
 # SWITCH_STATUS[b"POT"] = (6, 0)
 WIFI = network.WLAN(network.STA_IF)
-WIFI.ifconfig((REMOTE_IP, '255.255.255.0', '192.168.178.1', '8.8.8.8'))
+WIFI.ifconfig((REMOTE_IP, "255.255.255.0", "192.168.178.1", "8.8.8.8"))
 WIFI.active(True)
-WIFI.connect("Headrush Servant", "dunnolol")
+WIFI.connect("Headrush Servant", "dG4=ZWgXDaaj2Q-5")
 
 
 def _get_wifi_signal_strength() -> None:
@@ -167,7 +175,7 @@ def _get_wifi_signal_strength() -> None:
         rssi = None
         for net in networks:
             # print("\t{}".format(net))
-            if net[1] == b'\x8c\xaa\xb5\xb5\x9fe':
+            if net[1] == b"\x8c\xaa\xb5\xb5\x9fe":
                 rssi = net[3]
         # print("rssi: {}".format(rssi))
         global _WIFI_STRENGTH
@@ -214,9 +222,6 @@ def map_switch_status_to_color(value: float) -> hex:
 
 
 def clear_background():
-    # print("rendering background")
-    # set black background
-    # TFT.rect(0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1], fillcolor=TFT.WHITE)
     TFT.clear(TFT.BLACK)
 
 
@@ -226,7 +231,6 @@ def set_segment_font(color=COLOR_ON):
 
 
 def init_tft() -> None:
-    # print("init tft")
     set_segment_font()
     clear_background()
 
@@ -239,30 +243,42 @@ def draw_switch(switch: bytes) -> None:
     pos_value = SWITCH_STATUS[switch]
     pos = pos_value["pos"]
     value = pos_value["value"]
-    # lower row
     color = COLOR_ON if value else COLOR_OFF
     if pos <= 3:
         switch_space_multiplier = SWITCH_SPACE_WIDTH * pos
-        TFT.rect(switch_space_multiplier, WINDOW_SPLIT_Y, switch_space_multiplier + SWITCH_SPACE_WIDTH, WINDOW_SIZE[1], COLOR_BG)
-        TFT.circle(pos * SWITCH_SPACE_WIDTH + SWITCH_HALF_SPACE_WIDTH, SWITCH_Y, SWITCH_R, color, color)
-    # elif pos == 6:
-    #     TFT.circle(SWITCH_HALF_SPACE_WIDTH, int(WINDOW_SPLIT_Y / 2), SWITCH_R, color, color)
+        TFT.rect(
+            switch_space_multiplier,
+            WINDOW_SPLIT_Y,
+            switch_space_multiplier + SWITCH_SPACE_WIDTH,
+            WINDOW_SIZE[1],
+            COLOR_BG,
+        )
+        TFT.circle(
+            pos * SWITCH_SPACE_WIDTH + SWITCH_HALF_SPACE_WIDTH,
+            SWITCH_Y,
+            SWITCH_R,
+            color,
+            color,
+        )
 
 
 def reset_switches(switch: bytes) -> None:
     set_switch_status(switch)
     for sw in SWITCH_STATUS:
-        # new_value = not sw == switch
-        # if not SWITCH_STATUS[sw]["value"] == new_value:
         draw_switch(sw)
-        # SWITCH_STATUS[sw]["value"] = new_value
 
 
 def print_rig_number(rig: int, color=COLOR_ON) -> None:
     set_segment_font(color)
-    TFT.rect(RIG_X_START, RIG_Y_START, RIG_WIDTH, RIG_HEIGHT, color=COLOR_BG, fillcolor=COLOR_BG)
+    TFT.rect(
+        RIG_X_START,
+        RIG_Y_START,
+        RIG_WIDTH,
+        RIG_HEIGHT,
+        color=COLOR_BG,
+        fillcolor=COLOR_BG,
+    )
     text = str(rig)
-    # print("rig {}".format(rig))
     segment_width = int(RIG_WIDTH / 2)
     x = RIG_X_START + ((2 - len(text)) * segment_width)
     y = RIG_Y_START
@@ -278,8 +294,8 @@ def configure_socket():
         sleep_ms(250)
 
     import socket
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # sock.bind(("192.168.169.1", 10086))
     sock.sendto(b"Remote connected!", (SERVANT_IP, SERVANT_PORT))
 
     _update_wifi_status()
@@ -287,39 +303,13 @@ def configure_socket():
     return sock
 
 
-# ARROW_SIDE = WINDOW_SPLIT_X_1 - MARGIN * 2
-# ARROW_X1 = WINDOW_SPLIT_X_1 + MARGIN
-# ARROW_X3 = WINDOW_SPLIT_X_2 - MARGIN
-# ARROW_X2 = int((ARROW_X3 - ARROW_X1) / 2 + ARROW_X1)
-# ARROW_HEIGHT = int(ARROW_SIDE * math.sqrt(3) / 2)
-# ARROW_HEIGHT_2 = int(ARROW_HEIGHT / 2)
-# ARROW_Y1 = int((WINDOW_SPLIT_Y - ARROW_HEIGHT) / 2)
-# ARROW_Y2 = WINDOW_SPLIT_Y - ARROW_Y1
-
-
-# def _draw_arrow(up=True) -> None:
-#     if up:
-#         print(ARROW_X1, ARROW_Y2, ARROW_X2, ARROW_Y1, ARROW_X3, ARROW_Y2, COLOR_ON, COLOR_ON)
-#         TFT.triangle(ARROW_X1, ARROW_Y2, ARROW_X2, ARROW_Y1, ARROW_X3, ARROW_Y2, COLOR_ON, COLOR_ON)
-#     else:
-#         print(ARROW_X1, ARROW_Y1, ARROW_X2, ARROW_Y2, ARROW_X3, ARROW_Y1, COLOR_ON, COLOR_ON)
-#         TFT.triangle(ARROW_X1, ARROW_Y1, ARROW_X2, ARROW_Y2, ARROW_X3, ARROW_Y1, COLOR_ON, COLOR_ON)
-
-
-# def draw_arrow(up = True) -> None:
-#     _thread.start_new_thread(__blink_led, (times, interval))
-
-
 RIG_MIN = const(1)
 RIG_MAX = const(99)
-
-# _BUTTON_WIFI_NAME = b"WIFI_STATUS"
 
 
 def main() -> None:
     sock = configure_socket()
     print_text("")
-    # initiate_switch_status()
     reset_switches(_BUTTON_SCENE1)
 
     rig = RIG_MIN
@@ -333,41 +323,36 @@ def main() -> None:
         if _BUTTON_REPL.value() == 0:
             print_text("system exit")
             sys.exit()
-        # elif _BUTTON_WIFI_STATUS.value() == 1:
-        #     if not button_down == _BUTTON_WIFI_NAME:
-        #         print("WIFI button pressed")
-        #         button_down = _BUTTON_WIFI_NAME
-        #         global _WIFI_STRENGTH
-        #         _WIFI_STRENGTH = 0
-        #         _update_wifi_status()
-        #     elif button_down == _BUTTON_WIFI_NAME and _BUTTON_WIFI_STATUS.value() == 0:
-        #         button_down = None
         else:
             for command, button in _BUTTON_PIN_MAP.items():
                 if not button_down == command and button.value() == 0:
-                    # print("{} pressed".format(command))
                     button_down = command
-                    # print("sending '{command}'.".format(command=command))
                     if command in [_BUTTON_RIG_UP, _BUTTON_RIG_DOWN]:
                         if command == _BUTTON_RIG_UP:
                             if rig < RIG_MAX:
                                 rig += 1
                                 rig_change = True
+                                command = "RIG{}".format(rig).encode()
                             else:
                                 send = False
                         elif command == _BUTTON_RIG_DOWN:
                             if rig > RIG_MIN:
                                 rig -= 1
                                 rig_change = True
+                                command = "RIG{}".format(rig).encode()
                             else:
                                 send = False
 
                     if send:
                         print_rig_number(rig)
-                        message = "Rig {}".format(rig) if rig_change else command.replace(b"button_scene", b"Scene ").decode()
+                        message = (
+                            "Rig {}".format(rig)
+                            if rig_change
+                            else command.replace(b"button_scene", b"Scene ").decode()
+                        )
                         print_text("{} ...".format(message))
                         sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
-                        reset_switches(command)
+                        reset_switches(button_down)
                         print_text("{} OK".format(message))
 
                     break

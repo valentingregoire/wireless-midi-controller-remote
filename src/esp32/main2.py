@@ -15,7 +15,7 @@ BUTTON_PIN_MAP = {
     "button_scene2": create_pin(26),
     "button_scene3": create_pin(27),
     "button_scene4": create_pin(14),
-    "button_tap_tempo": create_pin(12)
+    "button_tap_tempo": create_pin(12),
 }
 
 _FLAG_READ = const(0x0002)
