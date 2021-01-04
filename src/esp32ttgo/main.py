@@ -314,7 +314,7 @@ def main() -> None:
 
     rig = RIG_MIN
     print_rig_number(rig)
-    print_text("Scene 1 OK")
+    print_text("Scene 1")
     button_down = None
     while True:
         send = True
@@ -353,7 +353,7 @@ def main() -> None:
                         print_text("{} ...".format(message))
                         sock.sendto(command, (SERVANT_IP, SERVANT_PORT))
                         reset_switches(button_down)
-                        print_text("{} OK".format(message))
+                        print_text(message)
 
                     break
                 elif button_down == command and button.value() == 1:
